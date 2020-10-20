@@ -116,7 +116,12 @@ router.post('/users', [
 
 // Route that returns a list of courses including User Owner
 router.get('/courses', asyncHandler(async (req, res) => {
-    const courses = await Course.findAll();
+    const courses = await Course.findAll({
+        include: [{
+            model: User,
+            as: 'User'
+        }]
+    });
     res
         .status(200)
         .json(courses);
@@ -124,7 +129,12 @@ router.get('/courses', asyncHandler(async (req, res) => {
 
 // Route that returns a specific course using course ID
 router.get('/courses/:id', asyncHandler(async(req, res) => {
-    const course = await Course.findByPk(req.params.id);
+    const course = await Course.findByPk(req.params.id, {
+        include: [{
+            model: User,
+            as: 'User'
+        }]
+    });
     if(course) {
         res.json(course).status(200);
     } else {
@@ -151,7 +161,7 @@ router.post('/courses', authenticateUser, [
 
         await Course.create(course);
 
-        res.status(201).set('Location', `/${course.id}`).end();
+        res.status(201).set('Location', `/api/courses/${course.id}`).end();
     } catch (error) {
         if(!errors.isEmpty()) {
             const errorMessages = errors.array().map(error => error.msg);
@@ -165,14 +175,15 @@ router.post('/courses', authenticateUser, [
 // Route that updates a course and returns no content
 router.put('/courses/:id', authenticateUser, [
     check('title')
-        .exists()
+        .isLength({min: 2})
         .withMessage('Please provide a value for "Title"'),
     check('description')
-        .exists()
+        .isLength({min: 2})
         .withMessage('Please provide a value for "Description"'),
 ], asyncHandler(async(req, res) => {
     // captures any validation errors
     const errors = validationResult(req);
+    console.log(errors);
 
     let course;
     try {
