@@ -1,9 +1,11 @@
 'use strict';
 
 const express = require('express');
+const { check, validationResult } = require('express-validator');
 const { sequelize, User, Course } = require('./models');
 const bcryptjs = require('bcryptjs');
 const auth = require('basic-auth');
+
 
 // Construct a router instance
 const router = express.Router();
@@ -27,8 +29,6 @@ const authenticateUser = async (req, res, next) => {
     
     if(credentials) {        
         const user = await User.findOne({ where: {emailAddress: credentials.name } });
-        console.log(credentials.pass);
-        console.log(user.password);
         if(user) {
             const authenticated = bcryptjs
                 .compareSync(credentials.pass, user.password);
@@ -53,7 +53,10 @@ const authenticateUser = async (req, res, next) => {
     }
 };
 
+/* 
 // User Routes
+*/
+
 
 // Route that returns the currently authenticated user
 router.get('/users', authenticateUser, asyncHandler(async (req, res) => {
@@ -69,8 +72,141 @@ router.get('/users', authenticateUser, asyncHandler(async (req, res) => {
 }));
 
 // Route that creates a user, sets the Location header to '/', and returns no content
-router.post('/users', (req, res) => {
-    res.status(201).set('Location', '/').end();
-});
+router.post('/users', [
+    check('firstName')
+        .exists()
+        .withMessage('Please provide a value for "First Name"'),
+    check('lastName')
+        .exists()
+        .withMessage('Please provide a value for "Last Name"'),
+    check('emailAddress')
+        .exists()
+        .withMessage('Please provide a value for "Email Address"'),
+    check('password')
+        .exists()
+        .withMessage('Please provide a value for "Password"'),
+], asyncHandler(async (req, res) => {
+    // captures any validation errors
+    const errors = validationResult(req);
+
+    // Try creates new user, Catch displays validation errors (if occur)
+    let user;
+    try {
+        user = await req.body;
+        // Hash the new user's password
+        user.password = bcryptjs.hashSync(user.password);
+
+        await User.create(user);
+
+        res.status(201).set('Location', '/').end();
+    } catch (error) {
+        if(!errors.isEmpty()) {
+            const errorMessages = errors.array().map(error => error.msg);
+            return res.status(400).json({ errors: errorMessages });
+        } else {
+            throw error;
+        }
+    }
+}));
+
+
+/* 
+// Course Routes
+*/
+
+// Route that returns a list of courses including User Owner
+router.get('/courses', asyncHandler(async (req, res) => {
+    const courses = await Course.findAll();
+    res
+        .status(200)
+        .json(courses);
+}));
+
+// Route that returns a specific course using course ID
+router.get('/courses/:id', asyncHandler(async(req, res) => {
+    const course = await Course.findByPk(req.params.id);
+    if(course) {
+        res.json(course).status(200);
+    } else {
+        res.status(404).json( {message: "Course not found"});
+    }
+}));
+
+// Route that creates course, sets Location header to URI for course, and returns 201 Created
+router.post('/courses', authenticateUser, [
+    check('title')
+        .exists()
+        .withMessage('Please provide a value for "Title"'),
+    check('description')
+        .exists()
+        .withMessage('Please provide a value for "Description"'),
+], asyncHandler(async (req, res) => {
+    // captures any validation errors
+    const errors = validationResult(req);
+
+    // Try creates new course, Catch displays validation errors (if occur)
+    let course;
+    try {
+        course = req.body;
+
+        await Course.create(course);
+
+        res.status(201).set('Location', `/${course.id}`).end();
+    } catch (error) {
+        if(!errors.isEmpty()) {
+            const errorMessages = errors.array().map(error => error.msg);
+            return res.status(400).json({ errors: errorMessages });
+        } else {
+            throw error;
+        }
+    }
+}));
+
+// Route that updates a course and returns no content
+router.put('/courses/:id', authenticateUser, [
+    check('title')
+        .exists()
+        .withMessage('Please provide a value for "Title"'),
+    check('description')
+        .exists()
+        .withMessage('Please provide a value for "Description"'),
+], asyncHandler(async(req, res) => {
+    // captures any validation errors
+    const errors = validationResult(req);
+
+    let course;
+    try {
+        course = await Course.findByPk(req.params.id);
+        if(course) {
+            await course.update(req.body);
+            res.status(204).end();
+        } else {
+            const error = new Error('Sorry, there is no course with that ID. Please try again.');
+            error.status = 404;
+            throw error;
+        }
+    } catch (error) {
+        if(!errors.isEmpty()) {
+            const errorMessages = errors.array().map(error => error.msg);
+            return res.status(400).json({ errors: errorMessages });
+        } else {
+            throw error;
+        }
+    }
+}));
+
+router.delete('/courses/:id', authenticateUser, asyncHandler(async(req, res) => {
+    const course = await Course.findByPk(req.params.id);
+    if(course) {
+        await course.destroy(req.body);
+        res.status(204).end();
+    } else {
+        const error = new Error('Sorry, there is no course with that ID. Please try again.');
+        error.status = 404;
+        throw error;
+    }
+}));
+
 
 module.exports = router;
+
