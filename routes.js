@@ -119,7 +119,10 @@ router.get('/courses', asyncHandler(async (req, res) => {
     const courses = await Course.findAll({
         include: [{
             model: User,
-            as: 'User'
+            as: 'User', 
+            attributes: {
+                exclude: ["password", "createdAt", "updatedAt"]
+            }
         }]
     });
     res
@@ -132,7 +135,10 @@ router.get('/courses/:id', asyncHandler(async(req, res) => {
     const course = await Course.findByPk(req.params.id, {
         include: [{
             model: User,
-            as: 'User'
+            as: 'User', 
+            attributes: {
+                exclude: ["password", "createdAt", "updatedAt"]
+            }
         }]
     });
     if(course) {
@@ -157,9 +163,7 @@ router.post('/courses', authenticateUser, [
     // Try creates new course, Catch displays validation errors (if occur)
     let course;
     try {
-        course = req.body;
-
-        await Course.create(course);
+          course = await Course.create(req.body);
 
         res.status(201).set('Location', `/api/courses/${course.id}`).end();
     } catch (error) {
