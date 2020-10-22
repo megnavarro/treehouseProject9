@@ -151,10 +151,10 @@ router.get('/courses/:id', asyncHandler(async(req, res) => {
 // Route that creates course, sets Location header to URI for course, and returns 201 Created
 router.post('/courses', authenticateUser, [
     check('title')
-        .exists()
+        .isLength({min: 2})
         .withMessage('Please provide a value for "Title"'),
     check('description')
-        .exists()
+        .isLength({min: 2})
         .withMessage('Please provide a value for "Description"'),
 ], asyncHandler(async (req, res) => {
     // captures any validation errors
